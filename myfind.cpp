@@ -45,8 +45,11 @@ void searchNonRecursive(std::string &searchPath, std::string &filename, bool cas
     {
         if (entry.is_regular_file() && namesMatch(entry.path().filename().string(), filename, caseInsensitive))
         {
-            std::cout << getpid() << ": " << filename << ": " << fs::absolute(entry.path()).string() << std::endl;
-        }
+            std::ostringstream oss;
+            oss << getpid() << ": " << filename << ": " << fs::absolute(entry.path().string()) << "\n";
+            std::string line = oss.str();
+            
+            write(STDOUT_FILENO, line.data(), line.size());        }
     }
     
 }
@@ -60,7 +63,7 @@ void searchRecursive(std::string &searchPath, std::string &filename, bool caseIn
         if (entry.is_regular_file() && namesMatch(entry.path().filename().string(), filename, caseInsensitive))
         {
             std::ostringstream oss;
-            oss << getpid() << ": " << filename << ": " << entry.path().string() << "\n";
+            oss << getpid() << ": " << filename << ": " << fs::absolute(entry.path().string()) << "\n";
             std::string line = oss.str();
             
             write(STDOUT_FILENO, line.data(), line.size());
@@ -68,6 +71,11 @@ void searchRecursive(std::string &searchPath, std::string &filename, bool caseIn
     }
     
 }
+
+//To ensure a correct output of the search results and prevent race conditions
+//the output strings will first be assembled and then be written into console with one atomic write execution.
+//see protocol for more info
+
 
 int main(int argc, char *argv[])
 {
