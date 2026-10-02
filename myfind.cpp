@@ -5,6 +5,7 @@
 #include <filesystem>
 #include <algorithm>
 #include <cctype>
+#include <sys/wait.h>
 
 namespace fs = std::filesystem;
 
@@ -38,33 +39,34 @@ bool namesMatch(const std::string &actualName, const std::string &searchedName, 
 }
 
 // sucht nur im direkten Ordner, nicht in den Unterordnern
-void searchNonRecursive(const Options &options)
+void searchNonRecursive(std::string &searchPath, std::string &filename, bool caseInsensitive)
 {
-    for (const std::string &filename : options.filenames)
+    for (const fs::directory_entry &entry : fs::directory_iterator(searchPath))
     {
-        for (const fs::directory_entry &entry : fs::directory_iterator(options.searchPath))
+        if (entry.is_regular_file() && namesMatch(entry.path().filename().string(), filename, caseInsensitive))
         {
-            if (entry.is_regular_file() && namesMatch(entry.path().filename().string(), filename, options.caseInsensitive))
-            {
-                std::cout << getpid() << ": " << filename << ": " << fs::absolute(entry.path()).string() << std::endl;
-            }
+            std::cout << getpid() << ": " << filename << ": " << fs::absolute(entry.path()).string() << std::endl;
         }
     }
+    
 }
 
 // sucht auch in den Unterordnern
-void searchRecursive(const Options &options)
+void searchRecursive(std::string &searchPath, std::string &filename, bool caseInsensitive)
 {
-    for (const std::string &filename : options.filenames)
+
+    for (const fs::directory_entry &entry : fs::recursive_directory_iterator(searchPath))
     {
-        for (const fs::directory_entry &entry : fs::recursive_directory_iterator(options.searchPath))
+        if (entry.is_regular_file() && namesMatch(entry.path().filename().string(), filename, caseInsensitive))
         {
-            if (entry.is_regular_file() && namesMatch(entry.path().filename().string(), filename, options.caseInsensitive))
-            {
-                std::cout << getpid() << ": " << filename << ": " << fs::absolute(entry.path()).string() << std::endl;
-            }
+            std::ostringstream oss;
+            oss << getpid() << ": " << filename << ": " << entry.path().string() << "\n";
+            std::string line = oss.str();
+            
+            write(STDOUT_FILENO, line.data(), line.size());
         }
     }
+    
 }
 
 int main(int argc, char *argv[])
@@ -109,23 +111,44 @@ int main(int argc, char *argv[])
         optind++;
     }
 
-    std::cout << "recursive = " << options.recursive << std::endl;
-    std::cout << "caseInsensitive = " << options.caseInsensitive << std::endl;
-    std::cout << "searchPath = " << options.searchPath << std::endl;
+    std::vector<pid_t> child_pids;
 
-    for (const std::string &filename : options.filenames)
+    for (std::string &filename : options.filenames)
     {
         std::cout << "filename = " << filename << std::endl;
-    }
 
-    if (options.recursive)
-    {
-        searchRecursive(options);
+        pid_t pid = fork();
+
+        if(pid < 0){
+            std::cout << "This shouldnt have happened, fork failed";
+            return 1;
+        }
+        else if(pid == 0){
+    
+            if(options.recursive){
+                searchRecursive(options.searchPath, filename, options.caseInsensitive);
+            } else{
+                searchNonRecursive(options.searchPath, filename, options.caseInsensitive);
+            }
+            exit(0);
+        } else{
+            child_pids.push_back(pid);
+        }
+
     }
-    else
-    {
-        searchNonRecursive(options);
-    }
+    for (pid_t cpid : child_pids)
+        {
+            int status;
+            if (waitpid(cpid, &status, 0) == -1)
+            {
+                std::cout << "wait failed";
+            }
+        }
+
+
+
+
+
 
     return 0;
 }
