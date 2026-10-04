@@ -3,7 +3,6 @@
 #include <string>
 #include <vector>
 #include <filesystem>
-#include <algorithm>
 #include <cctype>
 #include <sys/wait.h>
 #include <sstream>
@@ -22,8 +21,10 @@ struct Options
 // String in Kleinbuchstaben
 std::string toLower(std::string text)
 {
-    std::transform(text.begin(), text.end(), text.begin(), [](unsigned char c)
-                   { return std::tolower(c); });
+    for (char &c : text)
+    {
+        c = std::tolower(static_cast<unsigned char>(c));
+    }
 
     return text;
 }
