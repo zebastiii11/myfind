@@ -6,6 +6,7 @@
 #include <algorithm>
 #include <cctype>
 #include <sys/wait.h>
+#include <sstream>
 
 namespace fs = std::filesystem;
 
@@ -48,10 +49,10 @@ void searchNonRecursive(std::string &searchPath, std::string &filename, bool cas
             std::ostringstream oss;
             oss << getpid() << ": " << filename << ": " << fs::absolute(entry.path().string()) << "\n";
             std::string line = oss.str();
-            
-            write(STDOUT_FILENO, line.data(), line.size());        }
+
+            write(STDOUT_FILENO, line.data(), line.size());
+        }
     }
-    
 }
 
 // sucht auch in den Unterordnern
@@ -65,17 +66,15 @@ void searchRecursive(std::string &searchPath, std::string &filename, bool caseIn
             std::ostringstream oss;
             oss << getpid() << ": " << filename << ": " << fs::absolute(entry.path().string()) << "\n";
             std::string line = oss.str();
-            
+
             write(STDOUT_FILENO, line.data(), line.size());
         }
     }
-    
 }
 
-//To ensure a correct output of the search results and prevent race conditions
-//the output strings will first be assembled and then be written into console with one atomic write execution.
-//see protocol for more info
-
+// To ensure a correct output of the search results and prevent race conditions
+// the output strings will first be assembled and then be written into console with one atomic write execution.
+// see protocol for more info
 
 int main(int argc, char *argv[])
 {
@@ -127,36 +126,37 @@ int main(int argc, char *argv[])
 
         pid_t pid = fork();
 
-        if(pid < 0){
+        if (pid < 0)
+        {
             std::cout << "This shouldnt have happened, fork failed";
             return 1;
         }
-        else if(pid == 0){
-    
-            if(options.recursive){
+        else if (pid == 0)
+        {
+
+            if (options.recursive)
+            {
                 searchRecursive(options.searchPath, filename, options.caseInsensitive);
-            } else{
+            }
+            else
+            {
                 searchNonRecursive(options.searchPath, filename, options.caseInsensitive);
             }
             exit(0);
-        } else{
+        }
+        else
+        {
             child_pids.push_back(pid);
         }
-
     }
     for (pid_t cpid : child_pids)
+    {
+        int status;
+        if (waitpid(cpid, &status, 0) == -1)
         {
-            int status;
-            if (waitpid(cpid, &status, 0) == -1)
-            {
-                std::cout << "wait failed";
-            }
+            std::cout << "wait failed";
         }
-
-
-
-
-
+    }
 
     return 0;
 }
