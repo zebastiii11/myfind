@@ -23,7 +23,7 @@ std::string toLower(std::string text)
 {
     for (char &c : text)
     {
-        c = std::tolower(static_cast<unsigned char>(c));
+        c = std::tolower(c);
     }
 
     return text;
