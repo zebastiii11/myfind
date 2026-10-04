@@ -82,7 +82,7 @@ int main(int argc, char *argv[])
     Options options;
 
     int option;
-    while ((option = getopt(argc, argv, "Ri")) != -1)
+    while ((option = getopt(argc, argv, "Ri")) != -1)   // bis keine option
     {
         switch (option)
         {
